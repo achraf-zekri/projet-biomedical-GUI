@@ -1,7 +1,7 @@
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, scrolledtext
+import customtkinter as ctk
+from tkinter import ttk, filedialog, messagebox
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 import numpy as np
 import scipy.sparse as sp 
@@ -11,12 +11,15 @@ import os
 import threading
 import time
 
-class SimulateurBronchique(tk.Tk):
+# Configuration de CustomTkinter
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
+
+class SimulateurBronchique(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Simulateur du Système Bronchique - Écoulement dans les Tubes Souples")
         self.geometry("1400x900")
-        self.configure(bg='#f0f0f0')
         
         # Variables pour stocker les résultats
         self.resultats = {}
@@ -25,18 +28,13 @@ class SimulateurBronchique(tk.Tk):
         self.creer_interface()
         
     def creer_interface(self):
-        # Style moderne
-        style = ttk.Style()
-        style.theme_use('clam')
-        style.configure('TNotebook.Tab', font=('Arial', 10, 'bold'), padding=[10, 5])
-        
         # Frame principale
-        main_frame = ttk.Frame(self)
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        main_frame = ctk.CTkFrame(self)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
         
-        # Notebook (onglets)
+        # Notebook (onglets) - on garde ttk.Notebook car CustomTkinter n'a pas d'équivalent
         self.notebook = ttk.Notebook(main_frame)
-        self.notebook.pack(fill=tk.BOTH, expand=True)
+        self.notebook.pack(fill="both", expand=True)
         
         # Création des onglets
         self.creer_onglet_introduction()
@@ -48,17 +46,18 @@ class SimulateurBronchique(tk.Tk):
         self.creer_onglet_toutes_generations()
         
         # Barre de statut
-        self.status_var = tk.StringVar(value="Prêt")
-        status_bar = ttk.Label(self, textvariable=self.status_var, relief=tk.SUNKEN)
-        status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+        self.status_var = ctk.StringVar(value="Prêt")
+        status_bar = ctk.CTkLabel(self, textvariable=self.status_var, 
+                                 corner_radius=0, fg_color=("gray75", "gray25"))
+        status_bar.pack(side="bottom", fill="x")
         
     def creer_onglet_introduction(self):
-        frame = ttk.Frame(self.notebook)
+        frame = ctk.CTkFrame(self.notebook)
         self.notebook.add(frame, text="Introduction")
         
         # Titre
-        titre = tk.Label(frame, text="SIMULATEUR DU SYSTÈME BRONCHIQUE", 
-                        font=('Arial', 16, 'bold'), fg='#2c3e50')
+        titre = ctk.CTkLabel(frame, text="SIMULATEUR DU SYSTÈME BRONCHIQUE", 
+                           font=('Arial', 20, 'bold'), text_color=("gray10", "gray90"))
         titre.pack(pady=20)
         
         # Description
@@ -86,56 +85,78 @@ Achraf Zekri
 DATE : 11/11/2025
         """
         
-        desc = tk.Label(frame, text=desc_text, font=('Arial', 11), 
-                       justify=tk.LEFT, bg='#f8f9fa', relief=tk.RAISED, padx=20, pady=20)
-        desc.pack(padx=20, pady=10, fill=tk.BOTH, expand=True)
+        desc = ctk.CTkTextbox(frame, font=('Arial', 12), wrap="word", 
+                             fg_color=("gray90", "gray20"), 
+                             text_color=("gray10", "gray90"))
+        desc.pack(padx=20, pady=10, fill="both", expand=True)
+        desc.insert("1.0", desc_text)
+        desc.configure(state="disabled")
         
     def creer_onglet_edp_simple(self):
-        frame = ttk.Frame(self.notebook)
+        frame = ctk.CTkFrame(self.notebook)
         self.notebook.add(frame, text="EDP Simple")
         
         # Panneau de contrôle
-        control_frame = ttk.LabelFrame(frame, text="Paramètres EDP Simple", padding=10)
-        control_frame.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=5)
+        control_frame = ctk.CTkFrame(frame, corner_radius=10)
+        control_frame.pack(side="left", fill="y", padx=5, pady=5)
+        
+        control_label = ctk.CTkLabel(control_frame, text="Paramètres EDP Simple", 
+                                   font=('Arial', 14, 'bold'))
+        control_label.pack(pady=10)
         
         # Paramètres
-        ttk.Label(control_frame, text="Longueur L:").grid(row=0, column=0, sticky=tk.W, pady=2)
-        self.edp_L = tk.DoubleVar(value=10.0)
-        ttk.Entry(control_frame, textvariable=self.edp_L, width=10).grid(row=0, column=1, pady=2)
+        params_grid = ctk.CTkFrame(control_frame)
+        params_grid.pack(padx=10, pady=10, fill="both", expand=True)
         
-        ttk.Label(control_frame, text="Points N:").grid(row=1, column=0, sticky=tk.W, pady=2)
-        self.edp_N = tk.IntVar(value=100)
-        ttk.Entry(control_frame, textvariable=self.edp_N, width=10).grid(row=1, column=1, pady=2)
+        params = [
+            ("Longueur L:", "edp_L", 10.0),
+            ("Points N:", "edp_N", 100),
+            ("Constante C:", "edp_C", 10.0),
+            ("Condition F1:", "edp_F1", 0.0),
+            ("Condition FN:", "edp_FN", 0.0)
+        ]
         
-        ttk.Label(control_frame, text="Constante C:").grid(row=2, column=0, sticky=tk.W, pady=2)
-        self.edp_C = tk.DoubleVar(value=10.0)
-        ttk.Entry(control_frame, textvariable=self.edp_C, width=10).grid(row=2, column=1, pady=2)
-        
-        ttk.Label(control_frame, text="Condition F1:").grid(row=3, column=0, sticky=tk.W, pady=2)
-        self.edp_F1 = tk.DoubleVar(value=0.0)
-        ttk.Entry(control_frame, textvariable=self.edp_F1, width=10).grid(row=3, column=1, pady=2)
-        
-        ttk.Label(control_frame, text="Condition FN:").grid(row=4, column=0, sticky=tk.W, pady=2)
-        self.edp_FN = tk.DoubleVar(value=0.0)
-        ttk.Entry(control_frame, textvariable=self.edp_FN, width=10).grid(row=4, column=1, pady=2)
+        for i, (label, var_name, default) in enumerate(params):
+            ctk.CTkLabel(params_grid, text=label).grid(row=i, column=0, sticky="w", pady=5, padx=5)
+            var = ctk.DoubleVar(value=default) if "L" in label or "C" in label or "F" in label else ctk.IntVar(value=int(default))
+            setattr(self, var_name, var)
+            entry = ctk.CTkEntry(params_grid, textvariable=var, width=120)
+            entry.grid(row=i, column=1, pady=5, padx=5)
         
         # Bouton simulation
-        ttk.Button(control_frame, text="Lancer Simulation", 
-                  command=self.lancer_edp_simple).grid(row=5, column=0, columnspan=2, pady=10)
+        ctk.CTkButton(control_frame, text="Lancer Simulation", 
+                     command=self.lancer_edp_simple).pack(pady=10)
+        
+        # Barre de progression
+        ctk.CTkLabel(control_frame, text="Progression:").pack(pady=(10, 5))
+        self.edp_progress = ctk.CTkProgressBar(control_frame, orientation="horizontal", width=200)
+        self.edp_progress.pack(pady=5)
+        self.edp_progress.set(0)
+        
+        # Bouton export
+        ctk.CTkButton(control_frame, text="Exporter Résultats", 
+                     command=self.exporter_edp_simple).pack(pady=10)
         
         # Zone graphique
-        self.edp_figure_frame = ttk.Frame(frame)
-        self.edp_figure_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.edp_figure_frame = ctk.CTkFrame(frame)
+        self.edp_figure_frame.pack(side="right", fill="both", expand=True, padx=5, pady=5)
         
     def creer_onglet_laplacien(self):
-        frame = ttk.Frame(self.notebook)
+        frame = ctk.CTkFrame(self.notebook)
         self.notebook.add(frame, text="Laplacien 2D")
         
         # Panneau de contrôle
-        control_frame = ttk.LabelFrame(frame, text="Paramètres Laplacien", padding=10)
-        control_frame.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=5)
+        control_frame = ctk.CTkFrame(frame, corner_radius=10)
+        control_frame.pack(side="left", fill="y", padx=5, pady=5)
+        
+        control_label = ctk.CTkLabel(control_frame, text="Paramètres Laplacien", 
+                                   font=('Arial', 14, 'bold'))
+        control_label.pack(pady=10)
         
         # Paramètres
+        params_grid = ctk.CTkFrame(control_frame)
+        params_grid.pack(padx=10, pady=10, fill="both", expand=True)
+        
         params = [
             ("Points n:", "lapl_n", 40),
             ("Points m:", "lapl_m", 80),
@@ -145,28 +166,46 @@ DATE : 11/11/2025
         ]
         
         for i, (label, var_name, default) in enumerate(params):
-            ttk.Label(control_frame, text=label).grid(row=i, column=0, sticky=tk.W, pady=2)
-            var = tk.DoubleVar(value=default)
+            ctk.CTkLabel(params_grid, text=label).grid(row=i, column=0, sticky="w", pady=5, padx=5)
+            var = ctk.DoubleVar(value=default) if "L" in label or "l" in label or "C" in label else ctk.IntVar(value=int(default))
             setattr(self, var_name, var)
-            ttk.Entry(control_frame, textvariable=var, width=10).grid(row=i, column=1, pady=2)
+            entry = ctk.CTkEntry(params_grid, textvariable=var, width=120)
+            entry.grid(row=i, column=1, pady=5, padx=5)
         
         # Bouton simulation
-        ttk.Button(control_frame, text="Lancer Simulation", 
-                  command=self.lancer_laplacien).grid(row=len(params), column=0, columnspan=2, pady=10)
+        ctk.CTkButton(control_frame, text="Lancer Simulation", 
+                     command=self.lancer_laplacien).pack(pady=10)
+        
+        # Barre de progression
+        ctk.CTkLabel(control_frame, text="Progression:").pack(pady=(10, 5))
+        self.lapl_progress = ctk.CTkProgressBar(control_frame, orientation="horizontal", width=200)
+        self.lapl_progress.pack(pady=5)
+        self.lapl_progress.set(0)
+        
+        # Bouton export
+        ctk.CTkButton(control_frame, text="Exporter Résultats", 
+                     command=self.exporter_laplacien).pack(pady=10)
         
         # Zone graphique
-        self.lapl_figure_frame = ttk.Frame(frame)
-        self.lapl_figure_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.lapl_figure_frame = ctk.CTkFrame(frame)
+        self.lapl_figure_frame.pack(side="right", fill="both", expand=True, padx=5, pady=5)
         
     def creer_onglet_tube_rigide(self):
-        frame = ttk.Frame(self.notebook)
+        frame = ctk.CTkFrame(self.notebook)
         self.notebook.add(frame, text="Tube Rigide")
         
         # Panneau de contrôle
-        control_frame = ttk.LabelFrame(frame, text="Paramètres Tube Rigide", padding=10)
-        control_frame.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=5)
+        control_frame = ctk.CTkFrame(frame, corner_radius=10)
+        control_frame.pack(side="left", fill="y", padx=5, pady=5)
+        
+        control_label = ctk.CTkLabel(control_frame, text="Paramètres Tube Rigide", 
+                                   font=('Arial', 14, 'bold'))
+        control_label.pack(pady=10)
         
         # Paramètres
+        params_grid = ctk.CTkFrame(control_frame)
+        params_grid.pack(padx=10, pady=10, fill="both", expand=True)
+        
         params = [
             ("Points n:", "rigide_n", 100),
             ("Points m:", "rigide_m", 200),
@@ -178,36 +217,58 @@ DATE : 11/11/2025
         ]
         
         for i, (label, var_name, default) in enumerate(params):
-            ttk.Label(control_frame, text=label).grid(row=i, column=0, sticky=tk.W, pady=2)
-            var = tk.DoubleVar(value=default)
+            ctk.CTkLabel(params_grid, text=label).grid(row=i, column=0, sticky="w", pady=5, padx=5)
+            var = ctk.DoubleVar(value=default)
             setattr(self, var_name, var)
-            ttk.Entry(control_frame, textvariable=var, width=12).grid(row=i, column=1, pady=2)
+            entry = ctk.CTkEntry(params_grid, textvariable=var, width=120)
+            entry.grid(row=i, column=1, pady=5, padx=5)
         
         # Bouton simulation
-        ttk.Button(control_frame, text="Lancer Simulation", 
-                  command=self.lancer_tube_rigide).grid(row=len(params), column=0, columnspan=2, pady=10)
+        ctk.CTkButton(control_frame, text="Lancer Simulation", 
+                     command=self.lancer_tube_rigide).pack(pady=10)
+        
+        # Barre de progression
+        ctk.CTkLabel(control_frame, text="Progression:").pack(pady=(10, 5))
+        self.rigide_progress = ctk.CTkProgressBar(control_frame, orientation="horizontal", width=200)
+        self.rigide_progress.pack(pady=5)
+        self.rigide_progress.set(0)
+        
+        # Bouton export
+        ctk.CTkButton(control_frame, text="Exporter Résultats", 
+                     command=self.exporter_tube_rigide).pack(pady=10)
         
         # Zone graphique
-        self.rigide_figure_frame = ttk.Frame(frame)
-        self.rigide_figure_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.rigide_figure_frame = ctk.CTkFrame(frame)
+        self.rigide_figure_frame.pack(side="right", fill="both", expand=True, padx=5, pady=5)
         
     def creer_onglet_geometrie_variable(self):
-        frame = ttk.Frame(self.notebook)
+        frame = ctk.CTkFrame(self.notebook)
         self.notebook.add(frame, text="Géométrie Variable")
         
         # Panneau de contrôle
-        control_frame = ttk.LabelFrame(frame, text="Paramètres Géométrie", padding=10)
-        control_frame.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=5)
+        control_frame = ctk.CTkFrame(frame, corner_radius=10)
+        control_frame.pack(side="left", fill="y", padx=5, pady=5)
+        
+        control_label = ctk.CTkLabel(control_frame, text="Paramètres Géométrie", 
+                                   font=('Arial', 14, 'bold'))
+        control_label.pack(pady=10)
         
         # Type de géométrie
-        ttk.Label(control_frame, text="Type de géométrie:").grid(row=0, column=0, sticky=tk.W, pady=5)
-        self.geom_type = tk.StringVar(value="cylindrique")
-        ttk.Radiobutton(control_frame, text="Cylindrique", variable=self.geom_type, 
-                       value="cylindrique").grid(row=1, column=0, sticky=tk.W)
-        ttk.Radiobutton(control_frame, text="Aléatoire", variable=self.geom_type, 
-                       value="aleatoire").grid(row=2, column=0, sticky=tk.W)
+        ctk.CTkLabel(control_frame, text="Type de géométrie:").pack(pady=5)
+        self.geom_type = ctk.StringVar(value="cylindrique")
+        
+        geom_frame = ctk.CTkFrame(control_frame)
+        geom_frame.pack(pady=5, fill="x", padx=10)
+        
+        ctk.CTkRadioButton(geom_frame, text="Cylindrique", variable=self.geom_type, 
+                          value="cylindrique").pack(anchor="w", pady=2)
+        ctk.CTkRadioButton(geom_frame, text="Aléatoire", variable=self.geom_type, 
+                          value="aleatoire").pack(anchor="w", pady=2)
         
         # Paramètres communs
+        params_grid = ctk.CTkFrame(control_frame)
+        params_grid.pack(padx=10, pady=10, fill="both", expand=True)
+        
         common_params = [
             ("Points n:", "geom_n", 100),
             ("Points m:", "geom_m", 250),
@@ -219,28 +280,49 @@ DATE : 11/11/2025
         ]
         
         for i, (label, var_name, default) in enumerate(common_params):
-            ttk.Label(control_frame, text=label).grid(row=i+3, column=0, sticky=tk.W, pady=2)
-            var = tk.DoubleVar(value=default)
+            ctk.CTkLabel(params_grid, text=label).grid(row=i, column=0, sticky="w", pady=5, padx=5)
+            var = ctk.DoubleVar(value=default)
             setattr(self, var_name, var)
-            ttk.Entry(control_frame, textvariable=var, width=12).grid(row=i+3, column=1, pady=2)
+            entry = ctk.CTkEntry(params_grid, textvariable=var, width=120)
+            entry.grid(row=i, column=1, pady=5, padx=5)
         
         # Bouton simulation
-        ttk.Button(control_frame, text="Lancer Simulation", 
-                  command=self.lancer_geometrie_variable).grid(row=len(common_params)+3, column=0, columnspan=2, pady=10)
+        ctk.CTkButton(control_frame, text="Lancer Simulation", 
+                     command=self.lancer_geometrie_variable).pack(pady=10)
+        
+        # Barre de progression
+        ctk.CTkLabel(control_frame, text="Progression:").pack(pady=(10, 5))
+        self.geom_progress = ctk.CTkProgressBar(control_frame, orientation="horizontal", width=200)
+        self.geom_progress.pack(pady=5)
+        self.geom_progress.set(0)
+        
+        # Bouton export
+        ctk.CTkButton(control_frame, text="Exporter Résultats", 
+                     command=self.exporter_geometrie_variable).pack(pady=10)
         
         # Zone graphique
-        self.geom_figure_frame = ttk.Frame(frame)
-        self.geom_figure_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.geom_figure_frame = ctk.CTkFrame(frame)
+        self.geom_figure_frame.pack(side="right", fill="both", expand=True, padx=5, pady=5)
         
     def creer_onglet_tube_souple(self):
-        frame = ttk.Frame(self.notebook)
+        frame = ctk.CTkFrame(self.notebook)
         self.notebook.add(frame, text="Tube Souple")
         
-        # Panneau de contrôle
-        control_frame = ttk.LabelFrame(frame, text="Paramètres Tube Souple", padding=10)
-        control_frame.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=5)
+        # Panneau de contrôle avec scrollbar
+        control_scrollframe = ctk.CTkScrollableFrame(frame, width=350)
+        control_scrollframe.pack(side="left", fill="y", padx=5, pady=5)
+        
+        control_label = ctk.CTkLabel(control_scrollframe, text="Paramètres Tube Souple", 
+                                   font=('Arial', 14, 'bold'))
+        control_label.pack(pady=10)
         
         # Paramètres physiques du tube
+        phys_frame = ctk.CTkFrame(control_scrollframe)
+        phys_frame.pack(fill="x", padx=5, pady=5)
+        
+        ctk.CTkLabel(phys_frame, text="Paramètres Physiques", 
+                    font=('Arial', 12, 'bold')).pack(pady=5)
+        
         params_physiques = [
             ("Rayon maximal R0 (m):", "souple_R0", 0.00068),
             ("Paramètre forme α0:", "souple_alpha0", 0.102),
@@ -252,12 +334,21 @@ DATE : 11/11/2025
         ]
         
         for i, (label, var_name, default) in enumerate(params_physiques):
-            ttk.Label(control_frame, text=label).grid(row=i, column=0, sticky=tk.W, pady=2)
-            var = tk.DoubleVar(value=default)
+            row_frame = ctk.CTkFrame(phys_frame)
+            row_frame.pack(fill="x", padx=5, pady=2)
+            ctk.CTkLabel(row_frame, text=label, width=180).pack(side="left", padx=5)
+            var = ctk.DoubleVar(value=default)
             setattr(self, var_name, var)
-            ttk.Entry(control_frame, textvariable=var, width=12).grid(row=i, column=1, pady=2)
+            entry = ctk.CTkEntry(row_frame, textvariable=var, width=120)
+            entry.pack(side="right", padx=5)
         
         # Paramètres de simulation
+        sim_frame = ctk.CTkFrame(control_scrollframe)
+        sim_frame.pack(fill="x", padx=5, pady=5)
+        
+        ctk.CTkLabel(sim_frame, text="Paramètres Simulation", 
+                    font=('Arial', 12, 'bold')).pack(pady=5)
+        
         params_simulation = [
             ("Longueur L (m):", "souple_L", 0.0047),
             ("Pression entrée (Pa):", "souple_P_entree", 490.5),
@@ -271,72 +362,103 @@ DATE : 11/11/2025
         ]
         
         for i, (label, var_name, default) in enumerate(params_simulation):
-            ttk.Label(control_frame, text=label).grid(row=i+len(params_physiques), column=0, sticky=tk.W, pady=2)
-            var = tk.DoubleVar(value=default)
+            row_frame = ctk.CTkFrame(sim_frame)
+            row_frame.pack(fill="x", padx=5, pady=2)
+            ctk.CTkLabel(row_frame, text=label, width=180).pack(side="left", padx=5)
+            var = ctk.DoubleVar(value=default)
             setattr(self, var_name, var)
-            ttk.Entry(control_frame, textvariable=var, width=12).grid(row=i+len(params_physiques), column=1, pady=2)
+            entry = ctk.CTkEntry(row_frame, textvariable=var, width=120)
+            entry.pack(side="right", padx=5)
         
         # Bouton simulation
-        ttk.Button(control_frame, text="Lancer Simulation Tube Souple", 
-                  command=self.lancer_tube_souple).grid(row=len(params_physiques)+len(params_simulation), 
-                                                      column=0, columnspan=2, pady=10)
+        ctk.CTkButton(control_scrollframe, text="Lancer Simulation Tube Souple", 
+                     command=self.lancer_tube_souple).pack(pady=10)
+        
+        # Barre de progression
+        ctk.CTkLabel(control_scrollframe, text="Progression:").pack(pady=(10, 5))
+        self.souple_progress = ctk.CTkProgressBar(control_scrollframe, orientation="horizontal", width=300)
+        self.souple_progress.pack(pady=5)
+        self.souple_progress.set(0)
+        
+        self.souple_progress_label = ctk.CTkLabel(control_scrollframe, text="0%")
+        self.souple_progress_label.pack(pady=2)
+        
+        # Bouton export
+        ctk.CTkButton(control_scrollframe, text="Exporter Résultats", 
+                     command=self.exporter_tube_souple).pack(pady=10)
         
         # Zone graphique
-        self.souple_figure_frame = ttk.Frame(frame)
-        self.souple_figure_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.souple_figure_frame = ctk.CTkFrame(frame)
+        self.souple_figure_frame.pack(side="right", fill="both", expand=True, padx=5, pady=5)
         
     def creer_onglet_toutes_generations(self):
-        frame = ttk.Frame(self.notebook)
+        frame = ctk.CTkFrame(self.notebook)
         self.notebook.add(frame, text="Toutes Générations")
         
         # Panneau de contrôle
-        control_frame = ttk.LabelFrame(frame, text="Paramètres Toutes Générations", padding=10)
-        control_frame.pack(side=tk.LEFT, fill=tk.Y, padx=5, pady=5)
+        control_frame = ctk.CTkFrame(frame, corner_radius=10)
+        control_frame.pack(side="left", fill="y", padx=5, pady=5)
         
-        # Paramètres de simulation
-        params = [
-            ("Type de simulation:", "gen_type", "expiration_forcee"),
+        control_label = ctk.CTkLabel(control_frame, text="Paramètres Toutes Générations", 
+                                   font=('Arial', 14, 'bold'))
+        control_label.pack(pady=10)
+        
+        # Type de simulation
+        ctk.CTkLabel(control_frame, text="Type de simulation:").pack(pady=5)
+        self.gen_type = ctk.StringVar(value="expiration_forcee")
+        
+        type_frame = ctk.CTkFrame(control_frame)
+        type_frame.pack(pady=5, fill="x", padx=10)
+        
+        ctk.CTkRadioButton(type_frame, text="Expiration forcée", variable=self.gen_type, 
+                          value="expiration_forcee").pack(anchor="w", pady=2)
+        ctk.CTkRadioButton(type_frame, text="Inspiration", variable=self.gen_type, 
+                          value="inspiration").pack(anchor="w", pady=2)
+        ctk.CTkRadioButton(type_frame, text="Repos", variable=self.gen_type, 
+                          value="repos").pack(anchor="w", pady=2)
+        
+        # Autres paramètres
+        params_grid = ctk.CTkFrame(control_frame)
+        params_grid.pack(padx=10, pady=10, fill="both", expand=True)
+        
+        other_params = [
             ("Itérations max par génération:", "gen_iter_max", 100),
             ("Tolérance convergence:", "gen_tolerance", 1e-5),
             ("Viscosité C:", "gen_C", 1.8e-5)
         ]
         
-        # Type de simulation
-        ttk.Label(control_frame, text="Type de simulation:").grid(row=0, column=0, sticky=tk.W, pady=5)
-        self.gen_type = tk.StringVar(value="expiration_forcee")
-        ttk.Radiobutton(control_frame, text="Expiration forcée", variable=self.gen_type, 
-                       value="expiration_forcee").grid(row=1, column=0, sticky=tk.W)
-        ttk.Radiobutton(control_frame, text="Inspiration", variable=self.gen_type, 
-                       value="inspiration").grid(row=2, column=0, sticky=tk.W)
-        ttk.Radiobutton(control_frame, text="Repos", variable=self.gen_type, 
-                       value="repos").grid(row=3, column=0, sticky=tk.W)
-        
-        # Autres paramètres
-        for i, (label, var_name, default) in enumerate(params[1:], 4):
-            ttk.Label(control_frame, text=label).grid(row=i, column=0, sticky=tk.W, pady=2)
-            var = tk.DoubleVar(value=default)
+        for i, (label, var_name, default) in enumerate(other_params):
+            ctk.CTkLabel(params_grid, text=label).grid(row=i, column=0, sticky="w", pady=5, padx=5)
+            var = ctk.DoubleVar(value=default)
             setattr(self, var_name, var)
-            ttk.Entry(control_frame, textvariable=var, width=12).grid(row=i, column=1, pady=2)
+            entry = ctk.CTkEntry(params_grid, textvariable=var, width=120)
+            entry.grid(row=i, column=1, pady=5, padx=5)
         
         # Bouton simulation
-        ttk.Button(control_frame, text="Lancer Simulation Toutes Générations", 
-                  command=self.lancer_toutes_generations).grid(row=8, column=0, columnspan=2, pady=10)
+        ctk.CTkButton(control_frame, text="Lancer Simulation Toutes Générations", 
+                     command=self.lancer_toutes_generations).pack(pady=10)
         
         # Barre de progression
-        ttk.Label(control_frame, text="Progression:").grid(row=9, column=0, sticky=tk.W, pady=5)
-        self.gen_progress = ttk.Progressbar(control_frame, orient=tk.HORIZONTAL, length=200, mode='determinate')
-        self.gen_progress.grid(row=9, column=1, pady=5, sticky=tk.W+tk.E)
+        ctk.CTkLabel(control_frame, text="Progression:").pack(pady=(10, 5))
+        self.gen_progress = ctk.CTkProgressBar(control_frame, orientation="horizontal", width=200)
+        self.gen_progress.pack(pady=5)
+        self.gen_progress.set(0)
         
-        self.gen_progress_label = ttk.Label(control_frame, text="0/17 générations")
-        self.gen_progress_label.grid(row=10, column=0, columnspan=2, pady=2)
+        self.gen_progress_label = ctk.CTkLabel(control_frame, text="0/17 générations")
+        self.gen_progress_label.pack(pady=2)
+        
+        # Bouton export
+        ctk.CTkButton(control_frame, text="Exporter Résultats", 
+                     command=self.exporter_toutes_generations).pack(pady=10)
         
         # Zone graphique
-        self.gen_figure_frame = ttk.Frame(frame)
-        self.gen_figure_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
+        self.gen_figure_frame = ctk.CTkFrame(frame)
+        self.gen_figure_frame.pack(side="right", fill="both", expand=True, padx=5, pady=5)
+
     # Méthodes pour lancer les simulations
     def lancer_edp_simple(self):
         self.status_var.set("Simulation EDP simple en cours...")
+        self.edp_progress.set(0)
         
         # Récupération des paramètres
         L = self.edp_L.get()
@@ -353,6 +475,9 @@ DATE : 11/11/2025
         
     def executer_edp_simple(self, L, N, C, F1, FN):
         try:
+            # Mise à jour progression
+            self.after(0, lambda: self.edp_progress.set(0.3))
+            
             # Code 1 exact - sans modification
             hx = L/N
             
@@ -374,9 +499,21 @@ DATE : 11/11/2025
                     
                 return A, B
 
+            # Mise à jour progression
+            self.after(0, lambda: self.edp_progress.set(0.6))
+            
             # Résolution
             A, B = matrice(N, C, hx, F1, FN)
             S = np.linalg.solve(A, B)
+            
+            # Stocker les résultats
+            self.resultats['edp_simple'] = {
+                'solution': S,
+                'parametres': {'L': L, 'N': N, 'C': C, 'F1': F1, 'FN': FN}
+            }
+            
+            # Mise à jour progression
+            self.after(0, lambda: self.edp_progress.set(1.0))
             
             # Création du graphique
             self.after(0, self.afficher_graphique_edp, S, L, N, C)
@@ -400,15 +537,21 @@ DATE : 11/11/2025
         ax.set_ylabel("Valeur de f(x)")
         ax.grid(True, alpha=0.3)
         
-        # Intégrer dans Tkinter
+        # Intégrer dans Tkinter avec barre d'outils
         canvas = FigureCanvasTkAgg(fig, self.edp_figure_frame)
         canvas.draw()
-        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+        
+        # Ajouter la barre d'outils de navigation
+        toolbar = NavigationToolbar2Tk(canvas, self.edp_figure_frame)
+        toolbar.update()
+        canvas.get_tk_widget().pack(fill="both", expand=True)
         
         self.status_var.set("Simulation EDP simple terminée")
-        
+
     def lancer_laplacien(self):
         self.status_var.set("Simulation Laplacien en cours...")
+        self.lapl_progress.set(0)
         
         # Récupération des paramètres
         n = int(self.lapl_n.get())
@@ -424,6 +567,9 @@ DATE : 11/11/2025
         
     def executer_laplacien(self, n, m, L, l_val, C):
         try:
+            # Mise à jour progression
+            self.after(0, lambda: self.lapl_progress.set(0.3))
+            
             # Code 2 exact - sans modification
             hx, hy = L/n, l_val/m 
             N = n * m
@@ -457,8 +603,20 @@ DATE : 11/11/2025
                         
                 return A, B    
 
+            # Mise à jour progression
+            self.after(0, lambda: self.lapl_progress.set(0.7))
+            
             A, B = matrixes(n, m, C, hx, hy)
             S = np.linalg.solve(A, B)
+            
+            # Stocker les résultats
+            self.resultats['laplacien'] = {
+                'solution': S,
+                'parametres': {'n': n, 'm': m, 'L': L, 'l': l_val, 'C': C}
+            }
+            
+            # Mise à jour progression
+            self.after(0, lambda: self.lapl_progress.set(1.0))
             
             self.after(0, self.afficher_graphique_laplacien, S, n, m, L, l_val, C)
             
@@ -481,12 +639,18 @@ DATE : 11/11/2025
         
         canvas = FigureCanvasTkAgg(fig, self.lapl_figure_frame)
         canvas.draw()
-        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas.get_tk_widget().pack(fill="both", expand=True)
+        
+        # Ajouter la barre d'outils
+        toolbar = NavigationToolbar2Tk(canvas, self.lapl_figure_frame)
+        toolbar.update()
+        canvas.get_tk_widget().pack(fill="both", expand=True)
         
         self.status_var.set("Simulation Laplacien terminée")
         
     def lancer_tube_rigide(self):
         self.status_var.set("Simulation Tube Rigide en cours...")
+        self.rigide_progress.set(0)
         
         n = int(self.rigide_n.get())
         m = int(self.rigide_m.get())
@@ -503,6 +667,9 @@ DATE : 11/11/2025
         
     def executer_tube_rigide(self, n, m, L, l_val, C, P1, P2):
         try:
+            # Mise à jour progression
+            self.after(0, lambda: self.rigide_progress.set(0.2))
+            
             # Code 3 exact - sans modification
             hx, hy = L/n, l_val/m 
             
@@ -577,6 +744,9 @@ DATE : 11/11/2025
                             
                 return A.tocsr(), B
 
+            # Mise à jour progression
+            self.after(0, lambda: self.rigide_progress.set(0.6))
+            
             A, B = matrixes(n, m, C, hx, hy, P1, P2)
             S = spsolve(A, B)
 
@@ -593,6 +763,17 @@ DATE : 11/11/2025
             Ux_grille = (U_grille_stag[:, :-1] + U_grille_stag[:, 1:]) / 2.0
             Uy_grille = (V_grille_stag[:-1, :] + V_grille_stag[1:, :]) / 2.0
             
+            # Stocker les résultats
+            self.resultats['tube_rigide'] = {
+                'P_grille': P_grille,
+                'Ux_grille': Ux_grille,
+                'Uy_grille': Uy_grille,
+                'parametres': {'n': n, 'm': m, 'L': L, 'l': l_val, 'C': C, 'P1': P1, 'P2': P2}
+            }
+            
+            # Mise à jour progression
+            self.after(0, lambda: self.rigide_progress.set(1.0))
+            
             self.after(0, self.afficher_graphique_tube_rigide, P_grille, Ux_grille, Uy_grille, L, l_val)
             
         except Exception as e:
@@ -604,7 +785,7 @@ DATE : 11/11/2025
             
         # Créer un notebook pour organiser les graphiques
         notebook = ttk.Notebook(self.rigide_figure_frame)
-        notebook.pack(fill=tk.BOTH, expand=True)
+        notebook.pack(fill="both", expand=True)
         
         # Graphique 1: Pression
         frame1 = ttk.Frame(notebook)
@@ -620,7 +801,7 @@ DATE : 11/11/2025
         
         canvas1 = FigureCanvasTkAgg(fig1, frame1)
         canvas1.draw()
-        canvas1.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas1.get_tk_widget().pack(fill="both", expand=True)
         
         # Graphique 2: Vitesse horizontale
         frame2 = ttk.Frame(notebook)
@@ -636,7 +817,7 @@ DATE : 11/11/2025
         
         canvas2 = FigureCanvasTkAgg(fig2, frame2)
         canvas2.draw()
-        canvas2.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas2.get_tk_widget().pack(fill="both", expand=True)
         
         # Graphique 3: Vitesse verticale
         frame3 = ttk.Frame(notebook)
@@ -652,7 +833,7 @@ DATE : 11/11/2025
         
         canvas3 = FigureCanvasTkAgg(fig3, frame3)
         canvas3.draw()
-        canvas3.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas3.get_tk_widget().pack(fill="both", expand=True)
         
         # Graphique 4: Champ de vitesse combiné
         frame4 = ttk.Frame(notebook)
@@ -678,20 +859,22 @@ DATE : 11/11/2025
         magnitude = np.sqrt(Ux_subsampled**2 + Uy_subsampled**2)
         scale = np.max(magnitude) * 10 if np.max(magnitude) > 0 else 1
         
+        # Vecteurs en noir
         ax4.quiver(X, Y, Ux_subsampled, Uy_subsampled, magnitude, 
-                  scale=scale, cmap='plasma', alpha=0.8)
+                  scale=scale, color='black', alpha=0.8)
         ax4.set_xlabel('Position x (m)')
         ax4.set_ylabel('Position y (m)')
         ax4.set_title('Champ de Vitesse + Pression', fontsize=12)
         
         canvas4 = FigureCanvasTkAgg(fig4, frame4)
         canvas4.draw()
-        canvas4.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas4.get_tk_widget().pack(fill="both", expand=True)
         
         self.status_var.set("Simulation Tube Rigide terminée")
         
     def lancer_geometrie_variable(self):
         self.status_var.set("Simulation Géométrie Variable en cours...")
+        self.geom_progress.set(0)
         
         geom_type = self.geom_type.get()
         n = int(self.geom_n.get())
@@ -709,6 +892,9 @@ DATE : 11/11/2025
         
     def executer_geometrie_variable(self, geom_type, n, m, L, l_val, C, P1, P2):
         try:
+            # Mise à jour progression
+            self.after(0, lambda: self.geom_progress.set(0.2))
+            
             # Code 4 adapté selon le type
             hx, hy = L/n, l_val/m 
             y_centre = l_val / 2.0
@@ -724,6 +910,9 @@ DATE : 11/11/2025
                 kernel = np.ones(taille_lissage) / taille_lissage
                 bruit_lisse = np.convolve(bruit_brut, kernel, mode='same')
                 R = np.clip(rayon_moyen + bruit_lisse, 0.01 * l_val, y_centre * 0.95)
+            
+            # Mise à jour progression
+            self.after(0, lambda: self.geom_progress.set(0.4))
             
             # Le reste du code 4 reste identique
             Np, Nu, Nv = n*m, (n+1)*m, n*(m+1)
@@ -804,6 +993,9 @@ DATE : 11/11/2025
                             
                 return A.tocsr(), B
 
+            # Mise à jour progression
+            self.after(0, lambda: self.geom_progress.set(0.7))
+            
             A, B = matrixes(n, m, C, hx, hy, P1, P2, R, l_val)
             S = spsolve(A, B)
 
@@ -829,6 +1021,19 @@ DATE : 11/11/2025
             Ux_grille_plot = np.where(masque_mur, np.nan, Ux_grille)
             Uy_grille_plot = np.where(masque_mur, np.nan, Uy_grille)
             
+            # Stocker les résultats
+            self.resultats['geometrie_variable'] = {
+                'P_grille': P_grille_plot,
+                'Ux_grille': Ux_grille_plot,
+                'Uy_grille': Uy_grille_plot,
+                'R': R,
+                'geom_type': geom_type,
+                'parametres': {'n': n, 'm': m, 'L': L, 'l': l_val, 'C': C, 'P1': P1, 'P2': P2}
+            }
+            
+            # Mise à jour progression
+            self.after(0, lambda: self.geom_progress.set(1.0))
+            
             self.after(0, self.afficher_graphique_geometrie_variable, 
                       P_grille_plot, Ux_grille_plot, Uy_grille_plot, L, l_val, R, geom_type)
             
@@ -841,7 +1046,7 @@ DATE : 11/11/2025
             
         # Notebook pour organiser les graphiques
         notebook = ttk.Notebook(self.geom_figure_frame)
-        notebook.pack(fill=tk.BOTH, expand=True)
+        notebook.pack(fill="both", expand=True)
         
         # Graphique 1: Pression
         frame1 = ttk.Frame(notebook)
@@ -859,7 +1064,7 @@ DATE : 11/11/2025
         
         canvas1 = FigureCanvasTkAgg(fig1, frame1)
         canvas1.draw()
-        canvas1.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas1.get_tk_widget().pack(fill="both", expand=True)
         
         # Graphique 2: Vitesse horizontale
         frame2 = ttk.Frame(notebook)
@@ -877,7 +1082,7 @@ DATE : 11/11/2025
         
         canvas2 = FigureCanvasTkAgg(fig2, frame2)
         canvas2.draw()
-        canvas2.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas2.get_tk_widget().pack(fill="both", expand=True)
         
         # Graphique 3: Vitesse verticale
         frame3 = ttk.Frame(notebook)
@@ -895,7 +1100,7 @@ DATE : 11/11/2025
         
         canvas3 = FigureCanvasTkAgg(fig3, frame3)
         canvas3.draw()
-        canvas3.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas3.get_tk_widget().pack(fill="both", expand=True)
         
         # Graphique 4: Champ de vitesse combiné
         frame4 = ttk.Frame(notebook)
@@ -926,15 +1131,16 @@ DATE : 11/11/2025
         magnitude = np.sqrt(Ux_subsampled**2 + Uy_subsampled**2)
         scale = np.nanmax(magnitude) * 8 if not np.all(np.isnan(magnitude)) else 1
         
+        # Vecteurs en noir
         ax4.quiver(X[mask], Y[mask], Ux_subsampled[mask], Uy_subsampled[mask], 
-                  magnitude[mask], scale=scale, cmap='plasma', alpha=0.8)
+                  scale=scale, color='black', alpha=0.8)
         ax4.set_xlabel('Position x (m)')
         ax4.set_ylabel('Position y (m)')
         ax4.set_title('Champ de Vitesse + Pression', fontsize=12)
         
         canvas4 = FigureCanvasTkAgg(fig4, frame4)
         canvas4.draw()
-        canvas4.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas4.get_tk_widget().pack(fill="both", expand=True)
         
         # Graphique 5: Profil géométrique
         frame5 = ttk.Frame(notebook)
@@ -953,12 +1159,14 @@ DATE : 11/11/2025
         
         canvas5 = FigureCanvasTkAgg(fig5, frame5)
         canvas5.draw()
-        canvas5.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas5.get_tk_widget().pack(fill="both", expand=True)
         
         self.status_var.set(f"Simulation Géométrie {geom_type} terminée")
 
     def lancer_tube_souple(self):
         self.status_var.set("Simulation Tube Souple en cours...")
+        self.souple_progress.set(0)
+        self.souple_progress_label.configure(text="0%")
         
         # Récupération des paramètres
         R0 = self.souple_R0.get()
@@ -989,6 +1197,10 @@ DATE : 11/11/2025
                            L, P_entree, P_sortie, n_base, m_base, facteur_zoom_visuel, C, 
                            max_iterations, tolerance):
         try:
+            # Mise à jour progression
+            self.after(0, lambda: self.souple_progress.set(0.1))
+            self.after(0, lambda: self.souple_progress_label.configure(text="10% - Initialisation"))
+            
             # Code 5 adapté pour l'interface
             R_repos = R0 * np.sqrt(alpha0_val)
             
@@ -1123,6 +1335,9 @@ DATE : 11/11/2025
             S_final = None
 
             while iteration < max_iterations and changement:
+                progress = 0.1 + (iteration / max_iterations) * 0.8
+                self.after(0, lambda: self.souple_progress.set(progress))
+                self.after(0, lambda: self.souple_progress_label.configure(text=f"{int(progress*100)}% - Itération {iteration + 1}/{max_iterations}"))
                 self.after(0, lambda: self.status_var.set(f"Tube Souple - Itération {iteration + 1}/{max_iterations}"))
                 
                 A, B = matrixes(n, m, C, hx, hy, P_entree, P_sortie, R, l)
@@ -1211,6 +1426,13 @@ DATE : 11/11/2025
                     'hy': hy
                 }
                 
+                # Stocker les résultats
+                self.resultats['tube_souple'] = donnees_affichage
+                
+                # Mise à jour progression finale
+                self.after(0, lambda: self.souple_progress.set(1.0))
+                self.after(0, lambda: self.souple_progress_label.configure(text="100% - Terminé"))
+                
                 self.after(0, self.afficher_graphique_tube_souple, donnees_affichage)
             else:
                 self.after(0, self.afficher_erreur, "La simulation du tube souple n'a pas convergé")
@@ -1222,20 +1444,16 @@ DATE : 11/11/2025
         for widget in self.souple_figure_frame.winfo_children():
             widget.destroy()
             
-        # Notebook pour organiser les graphiques
+        # Notebook pour organiser les graphiques - 8 ONGLETS SÉPARÉS
         notebook = ttk.Notebook(self.souple_figure_frame)
-        notebook.pack(fill=tk.BOTH, expand=True)
+        notebook.pack(fill="both", expand=True)
         
-        # Graphique 1: Convergence - FIGURE PLUS GRANDE POUR ÉVITER LA CONDENSATION
+        # Graphique 1: Évolution rayons par colonne
         frame1 = ttk.Frame(notebook)
-        notebook.add(frame1, text="Convergence")
+        notebook.add(frame1, text="Évolution Rayons")
         
-        # Créer une figure plus grande avec un meilleur espacement
-        fig1 = Figure(figsize=(14, 10))
-        fig1.subplots_adjust(left=0.08, right=0.95, bottom=0.08, top=0.92, wspace=0.3, hspace=0.4)
-        
-        # Évolution rayons - Subplot plus grand
-        ax1 = fig1.add_subplot(2, 2, 1)
+        fig1 = Figure(figsize=(10, 6))
+        ax1 = fig1.add_subplot(111)
         iterations = range(len(donnees['R_history']))
         n = len(donnees['R_final']) - 1
         # Réduire le nombre de courbes affichées pour plus de clarté
@@ -1249,8 +1467,16 @@ DATE : 11/11/2025
         ax1.grid(True, alpha=0.3)
         ax1.tick_params(labelsize=9)
         
-        # Profil rayon final - Subplot plus grand
-        ax2 = fig1.add_subplot(2, 2, 2)
+        canvas1 = FigureCanvasTkAgg(fig1, frame1)
+        canvas1.draw()
+        canvas1.get_tk_widget().pack(fill="both", expand=True)
+        
+        # Graphique 2: Profil rayon final
+        frame2 = ttk.Frame(notebook)
+        notebook.add(frame2, text="Profil Rayon Final")
+        
+        fig2 = Figure(figsize=(10, 6))
+        ax2 = fig2.add_subplot(111)
         x_positions = np.linspace(0, donnees['L'], len(donnees['R_final']))
         ax2.plot(x_positions * 100, donnees['R_final'] * 100, 'b-', linewidth=2, label='Rayon final')
         R0_val = np.max(donnees['R_final'])
@@ -1264,8 +1490,16 @@ DATE : 11/11/2025
         ax2.grid(True, alpha=0.3)
         ax2.tick_params(labelsize=9)
         
-        # Statistiques rayons - Subplot plus grand
-        ax3 = fig1.add_subplot(2, 2, 3)
+        canvas2 = FigureCanvasTkAgg(fig2, frame2)
+        canvas2.draw()
+        canvas2.get_tk_widget().pack(fill="both", expand=True)
+        
+        # Graphique 3: Statistiques rayons
+        frame3 = ttk.Frame(notebook)
+        notebook.add(frame3, text="Statistiques Rayons")
+        
+        fig3 = Figure(figsize=(10, 6))
+        ax3 = fig3.add_subplot(111)
         rayon_moyen = [np.mean(donnees['R_history'][iter]) for iter in iterations]
         rayon_min = [np.min(donnees['R_history'][iter]) for iter in iterations]
         rayon_max = [np.max(donnees['R_history'][iter]) for iter in iterations]
@@ -1279,8 +1513,16 @@ DATE : 11/11/2025
         ax3.grid(True, alpha=0.3)
         ax3.tick_params(labelsize=9)
         
-        # Convergence - Subplot plus grand
-        ax4 = fig1.add_subplot(2, 2, 4)
+        canvas3 = FigureCanvasTkAgg(fig3, frame3)
+        canvas3.draw()
+        canvas3.get_tk_widget().pack(fill="both", expand=True)
+        
+        # Graphique 4: Convergence
+        frame4 = ttk.Frame(notebook)
+        notebook.add(frame4, text="Convergence")
+        
+        fig4 = Figure(figsize=(10, 6))
+        ax4 = fig4.add_subplot(111)
         changements = [data['changement_max'] for data in donnees['convergence_data'] if data['changement_max'] > 0]
         if changements:
             ax4.semilogy(range(1, len(changements)+1), changements, 'r-', linewidth=2)
@@ -1290,13 +1532,13 @@ DATE : 11/11/2025
         ax4.grid(True, alpha=0.3)
         ax4.tick_params(labelsize=9)
         
-        canvas1 = FigureCanvasTkAgg(fig1, frame1)
-        canvas1.draw()
-        canvas1.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas4 = FigureCanvasTkAgg(fig4, frame4)
+        canvas4.draw()
+        canvas4.get_tk_widget().pack(fill="both", expand=True)
         
-        # Graphique 2: Champ physique - FIGURE PLUS GRANDE POUR ÉVITER LA CONDENSATION
-        frame2 = ttk.Frame(notebook)
-        notebook.add(frame2, text="Champs Physiques")
+        # Graphique 5: Pression
+        frame5 = ttk.Frame(notebook)
+        notebook.add(frame5, text="Champ Pression")
         
         # Préparation des données pour l'affichage
         x_coords = np.linspace(donnees['hx']/2.0, donnees['L'] - donnees['hx']/2.0, donnees['P_grille'].shape[1])
@@ -1307,75 +1549,99 @@ DATE : 11/11/2025
         masque_mur = dist_au_centre_p > R_local_p_centres.reshape(1, len(R_local_p_centres))
         
         P_grille_plot = np.where(masque_mur, np.nan, donnees['P_grille'])
-        Ux_grille_plot = np.where(masque_mur, np.nan, donnees['Ux_grille'])
-        Uy_grille_plot = np.where(masque_mur, np.nan, donnees['Uy_grille'])
         
-        # Créer une figure plus grande avec un meilleur espacement
-        fig2 = Figure(figsize=(14, 10))
-        fig2.subplots_adjust(left=0.08, right=0.95, bottom=0.08, top=0.92, wspace=0.3, hspace=0.4)
-        
-        # Pression - Subplot plus grand
-        ax1 = fig2.add_subplot(2, 2, 1)
+        fig5 = Figure(figsize=(10, 6))
+        ax5 = fig5.add_subplot(111)
         cmap_pression = copy.copy(plt.cm.viridis)
         cmap_pression.set_bad('black')
-        im1 = ax1.imshow(P_grille_plot, extent=[0, donnees['L']*100, 0, donnees['l']*100], 
+        im5 = ax5.imshow(P_grille_plot, extent=[0, donnees['L']*100, 0, donnees['l']*100], 
                         origin='lower', aspect='auto', cmap=cmap_pression)
-        cbar1 = fig2.colorbar(im1, ax=ax1, label='Pression (Pa)')
-        cbar1.ax.tick_params(labelsize=9)
-        ax1.set_xlabel('Position x (cm)', fontsize=10)
-        ax1.set_ylabel('Position y (cm)', fontsize=10)
-        ax1.set_title('Champ de Pression', fontsize=11, fontweight='bold')
-        ax1.tick_params(labelsize=9)
+        cbar5 = fig5.colorbar(im5, ax=ax5, label='Pression (Pa)')
+        cbar5.ax.tick_params(labelsize=9)
+        ax5.set_xlabel('Position x (cm)', fontsize=10)
+        ax5.set_ylabel('Position y (cm)', fontsize=10)
+        ax5.set_title('Champ de Pression', fontsize=11, fontweight='bold')
+        ax5.tick_params(labelsize=9)
         
-        # Vitesse horizontale - Subplot plus grand
-        ax2 = fig2.add_subplot(2, 2, 2)
+        canvas5 = FigureCanvasTkAgg(fig5, frame5)
+        canvas5.draw()
+        canvas5.get_tk_widget().pack(fill="both", expand=True)
+        
+        # Graphique 6: Vitesse horizontale
+        frame6 = ttk.Frame(notebook)
+        notebook.add(frame6, text="Vitesse Horizontale")
+        
+        Ux_grille_plot = np.where(masque_mur, np.nan, donnees['Ux_grille'])
+        
+        fig6 = Figure(figsize=(10, 6))
+        ax6 = fig6.add_subplot(111)
         cmap_vitesse = copy.copy(plt.cm.coolwarm)
         cmap_vitesse.set_bad('black')
-        im2 = ax2.imshow(Ux_grille_plot, extent=[0, donnees['L']*100, 0, donnees['l']*100], 
+        im6 = ax6.imshow(Ux_grille_plot, extent=[0, donnees['L']*100, 0, donnees['l']*100], 
                         origin='lower', aspect='auto', cmap=cmap_vitesse)
-        cbar2 = fig2.colorbar(im2, ax=ax2, label='Vitesse Ux (m/s)')
-        cbar2.ax.tick_params(labelsize=9)
-        ax2.set_xlabel('Position x (cm)', fontsize=10)
-        ax2.set_ylabel('Position y (cm)', fontsize=10)
-        ax2.set_title('Vitesse Horizontale', fontsize=11, fontweight='bold')
-        ax2.tick_params(labelsize=9)
+        cbar6 = fig6.colorbar(im6, ax=ax6, label='Vitesse Ux (m/s)')
+        cbar6.ax.tick_params(labelsize=9)
+        ax6.set_xlabel('Position x (cm)', fontsize=10)
+        ax6.set_ylabel('Position y (cm)', fontsize=10)
+        ax6.set_title('Vitesse Horizontale', fontsize=11, fontweight='bold')
+        ax6.tick_params(labelsize=9)
         
-        # Pression + vecteurs vitesse - Subplot plus grand
-        ax3 = fig2.add_subplot(2, 2, 3)
-        im3 = ax3.imshow(P_grille_plot, extent=[0, donnees['L']*100, 0, donnees['l']*100], 
+        canvas6 = FigureCanvasTkAgg(fig6, frame6)
+        canvas6.draw()
+        canvas6.get_tk_widget().pack(fill="both", expand=True)
+        
+        # Graphique 7: Pression + vecteurs vitesse
+        frame7 = ttk.Frame(notebook)
+        notebook.add(frame7, text="Pression + Vitesse")
+        
+        Uy_grille_plot = np.where(masque_mur, np.nan, donnees['Uy_grille'])
+        
+        fig7 = Figure(figsize=(10, 6))
+        ax7 = fig7.add_subplot(111)
+        im7 = ax7.imshow(P_grille_plot, extent=[0, donnees['L']*100, 0, donnees['l']*100], 
                         origin='lower', aspect='auto', cmap=cmap_pression)
-        cbar3 = fig2.colorbar(im3, ax=ax3, label='Pression (Pa)')
-        cbar3.ax.tick_params(labelsize=9)
+        cbar7 = fig7.colorbar(im7, ax=ax7, label='Pression (Pa)')
+        cbar7.ax.tick_params(labelsize=9)
         
         # Ajouter les vecteurs vitesse avec un espacement adapté
         pas = max(1, donnees['P_grille'].shape[1] // 12)  # Réduire le nombre de vecteurs pour plus de clarté
         X, Y = np.meshgrid(x_coords, y_coords)
         # Filtrer les zones où il y a des données valides
         mask_vectors = ~np.isnan(Ux_grille_plot[::pas, ::pas])
-        ax3.quiver(X[::pas, ::pas][mask_vectors] * 100, Y[::pas, ::pas][mask_vectors] * 100, 
+        
+        # Vecteurs en noir
+        ax7.quiver(X[::pas, ::pas][mask_vectors] * 100, Y[::pas, ::pas][mask_vectors] * 100, 
                   Ux_grille_plot[::pas, ::pas][mask_vectors], Uy_grille_plot[::pas, ::pas][mask_vectors], 
-                  color='white', scale=np.nanmax(Ux_grille_plot)*25, alpha=0.7)
-        ax3.set_xlabel('Position x (cm)', fontsize=10)
-        ax3.set_ylabel('Position y (cm)', fontsize=10)
-        ax3.set_title('Pression et vitesse', fontsize=11, fontweight='bold')
-        ax3.tick_params(labelsize=9)
+                  color='black', scale=np.nanmax(Ux_grille_plot)*25, alpha=0.7)
+        ax7.set_xlabel('Position x (cm)', fontsize=10)
+        ax7.set_ylabel('Position y (cm)', fontsize=10)
+        ax7.set_title('Pression et vitesse', fontsize=11, fontweight='bold')
+        ax7.tick_params(labelsize=9)
         
-        # Profil géométrique final - Subplot plus grand
-        ax4 = fig2.add_subplot(2, 2, 4)
+        canvas7 = FigureCanvasTkAgg(fig7, frame7)
+        canvas7.draw()
+        canvas7.get_tk_widget().pack(fill="both", expand=True)
+        
+        # Graphique 8: Profil géométrique final
+        frame8 = ttk.Frame(notebook)
+        notebook.add(frame8, text="Profil Géométrique")
+        
+        fig8 = Figure(figsize=(10, 6))
+        ax8 = fig8.add_subplot(111)
         x_positions = np.linspace(0, donnees['L'], len(donnees['R_final']))
-        ax4.plot(x_positions * 100, donnees['R_final'] * 100, 'b-', linewidth=2, label='Rayon final')
-        ax4.fill_between(x_positions * 100, donnees['l']/2*100 - donnees['R_final']*100, 
+        ax8.plot(x_positions * 100, donnees['R_final'] * 100, 'b-', linewidth=2, label='Rayon final')
+        ax8.fill_between(x_positions * 100, donnees['l']/2*100 - donnees['R_final']*100, 
                         donnees['l']/2*100 + donnees['R_final']*100, alpha=0.3, color='blue')
-        ax4.set_xlabel('Position x (cm)', fontsize=10)
-        ax4.set_ylabel('Rayon (cm)', fontsize=10)
-        ax4.set_title('Profil géométrique final', fontsize=11, fontweight='bold')
-        ax4.legend(fontsize=8)
-        ax4.grid(True, alpha=0.3)
-        ax4.tick_params(labelsize=9)
+        ax8.set_xlabel('Position x (cm)', fontsize=10)
+        ax8.set_ylabel('Rayon (cm)', fontsize=10)
+        ax8.set_title('Profil géométrique final', fontsize=11, fontweight='bold')
+        ax8.legend(fontsize=8)
+        ax8.grid(True, alpha=0.3)
+        ax8.tick_params(labelsize=9)
         
-        canvas2 = FigureCanvasTkAgg(fig2, frame2)
-        canvas2.draw()
-        canvas2.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas8 = FigureCanvasTkAgg(fig8, frame8)
+        canvas8.draw()
+        canvas8.get_tk_widget().pack(fill="both", expand=True)
         
         self.status_var.set(f"Simulation Tube Souple terminée ({donnees['iteration_finale']} itérations)")
 
@@ -1383,8 +1649,8 @@ DATE : 11/11/2025
         self.status_var.set("Simulation de toutes les générations en cours...")
         
         # Réinitialiser la barre de progression
-        self.gen_progress['value'] = 0
-        self.gen_progress_label['text'] = "0/17 générations"
+        self.gen_progress.set(0)
+        self.gen_progress_label.configure(text="0/17 générations")
         
         # Récupération des paramètres
         cas = self.gen_type.get()
@@ -1694,6 +1960,9 @@ DATE : 11/11/2025
                     print(f"Erreur génération {gen}: {e}")
                     continue
 
+            # Stocker les résultats
+            self.resultats['toutes_generations'] = resultats
+            
             # Analyse comparative
             self.after(0, self.afficher_graphique_toutes_generations, resultats, cas)
             
@@ -1701,9 +1970,9 @@ DATE : 11/11/2025
             self.after(0, self.afficher_erreur, f"Erreur toutes générations: {str(e)}")
 
     def mettre_a_jour_progression(self, gen_actuel, total_generations):
-        progression = (gen_actuel + 1) / total_generations * 100
-        self.gen_progress['value'] = progression
-        self.gen_progress_label['text'] = f"{gen_actuel + 1}/{total_generations} générations"
+        progression = (gen_actuel + 1) / total_generations
+        self.gen_progress.set(progression)
+        self.gen_progress_label.configure(text=f"{gen_actuel + 1}/{total_generations} générations")
         self.status_var.set(f"Simulation génération {gen_actuel + 1}/{total_generations}")
 
     def afficher_graphique_toutes_generations(self, resultats, cas):
@@ -1712,7 +1981,7 @@ DATE : 11/11/2025
             
         # Notebook pour organiser les graphiques
         notebook = ttk.Notebook(self.gen_figure_frame)
-        notebook.pack(fill=tk.BOTH, expand=True)
+        notebook.pack(fill="both", expand=True)
         
         # Préparation des données pour les graphiques comparatifs
         generations = []
@@ -1758,7 +2027,7 @@ DATE : 11/11/2025
         
         canvas1 = FigureCanvasTkAgg(fig1, frame1)
         canvas1.draw()
-        canvas1.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas1.get_tk_widget().pack(fill="both", expand=True)
         
         # Graphique 2: Variation relative
         frame2 = ttk.Frame(notebook)
@@ -1782,7 +2051,7 @@ DATE : 11/11/2025
         
         canvas2 = FigureCanvasTkAgg(fig2, frame2)
         canvas2.draw()
-        canvas2.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas2.get_tk_widget().pack(fill="both", expand=True)
         
         # Graphique 3: Pressions
         frame3 = ttk.Frame(notebook)
@@ -1807,7 +2076,7 @@ DATE : 11/11/2025
         
         canvas3 = FigureCanvasTkAgg(fig3, frame3)
         canvas3.draw()
-        canvas3.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas3.get_tk_widget().pack(fill="both", expand=True)
         
         # Graphique 4: Paradoxe bronchique
         frame4 = ttk.Frame(notebook)
@@ -1840,9 +2109,184 @@ DATE : 11/11/2025
         
         canvas4 = FigureCanvasTkAgg(fig4, frame4)
         canvas4.draw()
-        canvas4.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        canvas4.get_tk_widget().pack(fill="both", expand=True)
         
         self.status_var.set(f"Simulation de toutes les générations terminée ({len(resultats)}/17 générations)")
+
+    # Méthodes d'exportation
+    def exporter_edp_simple(self):
+        if 'edp_simple' not in self.resultats:
+            messagebox.showwarning("Avertissement", "Aucune donnée à exporter. Veuillez d'abord lancer une simulation.")
+            return
+        
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            filetypes=[("PNG files", "*.png"), ("All files", "*.*")],
+            title="Exporter les résultats EDP Simple"
+        )
+        
+        if filename:
+            try:
+                # Sauvegarder le graphique
+                for widget in self.edp_figure_frame.winfo_children():
+                    if isinstance(widget, FigureCanvasTkAgg):
+                        widget.figure.savefig(filename, dpi=300, bbox_inches='tight')
+                        break
+                
+                # Sauvegarder les données
+                data_filename = filename.replace('.png', '_data.txt')
+                with open(data_filename, 'w') as f:
+                    f.write("Résultats Simulation EDP Simple\n")
+                    f.write("===============================\n\n")
+                    data = self.resultats['edp_simple']
+                    f.write(f"Paramètres:\n")
+                    f.write(f"  Longueur L: {data['parametres']['L']}\n")
+                    f.write(f"  Points N: {data['parametres']['N']}\n")
+                    f.write(f"  Constante C: {data['parametres']['C']}\n")
+                    f.write(f"  Condition F1: {data['parametres']['F1']}\n")
+                    f.write(f"  Condition FN: {data['parametres']['FN']}\n\n")
+                    f.write("Solution:\n")
+                    for i, val in enumerate(data['solution']):
+                        f.write(f"  f({i}) = {val}\n")
+                
+                messagebox.showinfo("Succès", f"Résultats exportés avec succès:\n{filename}\n{data_filename}")
+            except Exception as e:
+                messagebox.showerror("Erreur", f"Erreur lors de l'exportation: {str(e)}")
+
+    def exporter_laplacien(self):
+        if 'laplacien' not in self.resultats:
+            messagebox.showwarning("Avertissement", "Aucune donnée à exporter. Veuillez d'abord lancer une simulation.")
+            return
+        
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            filetypes=[("PNG files", "*.png"), ("All files", "*.*")],
+            title="Exporter les résultats Laplacien"
+        )
+        
+        if filename:
+            try:
+                # Sauvegarder le graphique
+                for widget in self.lapl_figure_frame.winfo_children():
+                    if isinstance(widget, FigureCanvasTkAgg):
+                        widget.figure.savefig(filename, dpi=300, bbox_inches='tight')
+                        break
+                
+                messagebox.showinfo("Succès", f"Résultats exportés avec succès:\n{filename}")
+            except Exception as e:
+                messagebox.showerror("Erreur", f"Erreur lors de l'exportation: {str(e)}")
+
+    def exporter_tube_rigide(self):
+        if 'tube_rigide' not in self.resultats:
+            messagebox.showwarning("Avertissement", "Aucune donnée à exporter. Veuillez d'abord lancer une simulation.")
+            return
+        
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            filetypes=[("PNG files", "*.png"), ("All files", "*.*")],
+            title="Exporter les résultats Tube Rigide"
+        )
+        
+        if filename:
+            try:
+                # Sauvegarder le graphique actif
+                for widget in self.rigide_figure_frame.winfo_children():
+                    if isinstance(widget, ttk.Notebook):
+                        current_tab = widget.select()
+                        tab_widget = widget.nametowidget(current_tab)
+                        for sub_widget in tab_widget.winfo_children():
+                            if isinstance(sub_widget, FigureCanvasTkAgg):
+                                sub_widget.figure.savefig(filename, dpi=300, bbox_inches='tight')
+                                break
+                        break
+                
+                messagebox.showinfo("Succès", f"Résultats exportés avec succès:\n{filename}")
+            except Exception as e:
+                messagebox.showerror("Erreur", f"Erreur lors de l'exportation: {str(e)}")
+
+    def exporter_geometrie_variable(self):
+        if 'geometrie_variable' not in self.resultats:
+            messagebox.showwarning("Avertissement", "Aucune donnée à exporter. Veuillez d'abord lancer une simulation.")
+            return
+        
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            filetypes=[("PNG files", "*.png"), ("All files", "*.*")],
+            title="Exporter les résultats Géométrie Variable"
+        )
+        
+        if filename:
+            try:
+                # Sauvegarder le graphique actif
+                for widget in self.geom_figure_frame.winfo_children():
+                    if isinstance(widget, ttk.Notebook):
+                        current_tab = widget.select()
+                        tab_widget = widget.nametowidget(current_tab)
+                        for sub_widget in tab_widget.winfo_children():
+                            if isinstance(sub_widget, FigureCanvasTkAgg):
+                                sub_widget.figure.savefig(filename, dpi=300, bbox_inches='tight')
+                                break
+                        break
+                
+                messagebox.showinfo("Succès", f"Résultats exportés avec succès:\n{filename}")
+            except Exception as e:
+                messagebox.showerror("Erreur", f"Erreur lors de l'exportation: {str(e)}")
+
+    def exporter_tube_souple(self):
+        if 'tube_souple' not in self.resultats:
+            messagebox.showwarning("Avertissement", "Aucune donnée à exporter. Veuillez d'abord lancer une simulation.")
+            return
+        
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            filetypes=[("PNG files", "*.png"), ("All files", "*.*")],
+            title="Exporter les résultats Tube Souple"
+        )
+        
+        if filename:
+            try:
+                # Sauvegarder le graphique actif
+                for widget in self.souple_figure_frame.winfo_children():
+                    if isinstance(widget, ttk.Notebook):
+                        current_tab = widget.select()
+                        tab_widget = widget.nametowidget(current_tab)
+                        for sub_widget in tab_widget.winfo_children():
+                            if isinstance(sub_widget, FigureCanvasTkAgg):
+                                sub_widget.figure.savefig(filename, dpi=300, bbox_inches='tight')
+                                break
+                        break
+                
+                messagebox.showinfo("Succès", f"Résultats exportés avec succès:\n{filename}")
+            except Exception as e:
+                messagebox.showerror("Erreur", f"Erreur lors de l'exportation: {str(e)}")
+
+    def exporter_toutes_generations(self):
+        if 'toutes_generations' not in self.resultats:
+            messagebox.showwarning("Avertissement", "Aucune donnée à exporter. Veuillez d'abord lancer une simulation.")
+            return
+        
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".png",
+            filetypes=[("PNG files", "*.png"), ("All files", "*.*")],
+            title="Exporter les résultats Toutes Générations"
+        )
+        
+        if filename:
+            try:
+                # Sauvegarder le graphique actif
+                for widget in self.gen_figure_frame.winfo_children():
+                    if isinstance(widget, ttk.Notebook):
+                        current_tab = widget.select()
+                        tab_widget = widget.nametowidget(current_tab)
+                        for sub_widget in tab_widget.winfo_children():
+                            if isinstance(sub_widget, FigureCanvasTkAgg):
+                                sub_widget.figure.savefig(filename, dpi=300, bbox_inches='tight')
+                                break
+                        break
+                
+                messagebox.showinfo("Succès", f"Résultats exportés avec succès:\n{filename}")
+            except Exception as e:
+                messagebox.showerror("Erreur", f"Erreur lors de l'exportation: {str(e)}")
 
     # Méthodes utilitaires
     def afficher_erreur(self, message):
@@ -1856,17 +2300,3 @@ DATE : 11/11/2025
 if __name__ == "__main__":
     app = SimulateurBronchique()
     app.mainloop()
-
-
-
-
-
-
-
-
-
-
-
-
-
-input("fin")
